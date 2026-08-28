@@ -62,6 +62,8 @@
 
 
 from rest_framework import serializers
+from rest_framework.views import APIView
+from rest_framework.response import Response 
 
 from .models import (
     Category,
@@ -69,6 +71,27 @@ from .models import (
     FoodItemImage,
     SubCategory,
 )
+
+class FoodItemListView(APIView):
+
+    def get(self, request, category_id=None, subcategory_id=None):
+
+        if category_id:
+            items = FoodItem.objects.filter(
+                subcategory__category_id=category_id
+            )
+
+        elif subcategory_id:
+            items = FoodItem.objects.filter(
+                subcategory_id=subcategory_id
+            )
+
+        else:
+            items = FoodItem.objects.all()
+
+        serializer = FoodItemSerializer(items, many=True)
+
+        return Response(serializer.data)
 
 
 class FoodItemImageSerializer(serializers.ModelSerializer):
@@ -80,12 +103,20 @@ class FoodItemImageSerializer(serializers.ModelSerializer):
             "alt_text",
             "display_order",
         ]
-
+# class FoodItemSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = FoodItem
+#         fields = "__all__"
 
 class FoodItemSerializer(serializers.ModelSerializer):
-    images = FoodItemImageSerializer(
-        many=True,
-        read_only=True,
+    subcategory_name = serializers.CharField(
+        source="subcategory.name",
+        read_only=True
+    )
+
+    category_name = serializers.CharField(
+        source="subcategory.category.name",
+        read_only=True
     )
 
     class Meta:
@@ -97,13 +128,16 @@ class FoodItemSerializer(serializers.ModelSerializer):
             "price",
             "discount_price",
             "image",
-            "images",
             "is_available",
             "is_featured",
             "preparation_time",
             "display_order",
+            "subcategory",
+            "subcategory_name",
+            "category_name",
+            "created_at",
+            "updated_at",
         ]
-
 
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:

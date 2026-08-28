@@ -13,6 +13,12 @@ urlpatterns = [
     ),
 
     path(
+    "categories/<int:category_id>/items/",
+    FoodItemListView.as_view(),
+    name="category-food-items",
+    ),  
+
+    path(
         "categories/<int:category_id>/subcategories/",
         SubCategoryListView.as_view(),
         name="subcategory-list",

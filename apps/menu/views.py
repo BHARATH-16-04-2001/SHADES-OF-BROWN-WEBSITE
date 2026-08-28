@@ -2,6 +2,7 @@ from rest_framework.generics import ListAPIView
 from django.db.models import Prefetch
 from .models import Category, SubCategory, FoodItem
 from .serializers import CategorySerializer, SubCategorySerializer, FoodItemSerializer, MenuCategorySerializer
+from rest_framework import generics
 
 
 class CategoryListView(ListAPIView):
@@ -71,3 +72,23 @@ class MenuListView(ListAPIView):
             )
             .order_by("display_order", "name")
         )
+
+class FoodItemListView(generics.ListAPIView):
+    serializer_class = FoodItemSerializer
+
+    def get_queryset(self):
+        if "category_id" in self.kwargs:
+            category_id = self.kwargs["category_id"]
+
+            return FoodItem.objects.filter(
+                subcategory__category_id=category_id
+            )
+
+        if "subcategory_id" in self.kwargs:
+            subcategory_id = self.kwargs["subcategory_id"]
+
+            return FoodItem.objects.filter(
+                subcategory_id=subcategory_id
+            )
+
+        return FoodItem.objects.all()
