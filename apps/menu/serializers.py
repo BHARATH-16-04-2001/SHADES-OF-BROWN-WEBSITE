@@ -64,6 +64,7 @@
 from rest_framework import serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response 
+from rest_framework import generics
 
 from .models import (
     Category,
@@ -114,6 +115,11 @@ class FoodItemSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    category_id = serializers.IntegerField(
+        source="subcategory.category.id",   
+        read_only=True
+    )
+
     category_name = serializers.CharField(
         source="subcategory.category.name",
         read_only=True
@@ -135,6 +141,7 @@ class FoodItemSerializer(serializers.ModelSerializer):
             "subcategory",
             "subcategory_name",
             "category_name",
+            "category_id",
             "created_at",
             "updated_at",
         ]
@@ -205,4 +212,30 @@ class MenuCategorySerializer(serializers.ModelSerializer):
             "display_order",
             "is_active",
             "subcategories",
+        ]
+
+class FoodItemHomeSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(
+        source="subcategory.category.name",
+        read_only=True
+    )
+    subcategory_name = serializers.CharField(
+        source="subcategory.name",
+        read_only=True
+    )
+
+    class Meta:
+        model = FoodItem
+        fields = [
+            "id",
+            "name",
+            "description",
+            "price",
+            "discount_price",
+            "image",
+            "category_name",
+            "subcategory_name",
+            "is_available",
+            "is_featured",
+            "preparation_time",
         ]

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import CategoryListView, FoodItemListView, SubCategoryListView, MenuListView
+from .views import CategoryListView, FoodItemListView, SubCategoryListView, MenuListView, HomeFoodItemListView
 
 # app_name = "menu"
 
@@ -35,4 +35,10 @@ urlpatterns = [
     MenuListView.as_view(),
     name="menu-list",
 ),
+
+ path(
+        "home-items/",
+        HomeFoodItemListView.as_view(),
+        name="home-food-items",
+    ),
 ]
