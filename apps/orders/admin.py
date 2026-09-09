@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Order, OrderItem
+from .models import Order, OrderItem, Customer
 
 
 class OrderItemInline(admin.TabularInline):
@@ -18,6 +18,7 @@ class OrderItemInline(admin.TabularInline):
 class OrderAdmin(admin.ModelAdmin):
     list_display = (
         "order_number",
+        "table_number",
         "customer",
         "status",
         "subtotal",
@@ -56,12 +57,18 @@ class OrderAdmin(admin.ModelAdmin):
 class OrderItemAdmin(admin.ModelAdmin):
     list_display = (
         "order",
+        "id",
+        "customer_name",
         "food_name",
         "quantity",
         "unit_price",
         "total_price",
         "created_at",
     )
+
+    @admin.display( description="Customer" )
+    def customer_name(self, obj): 
+        return obj.order.customer.name
 
     search_fields = (
         "order__order_number",

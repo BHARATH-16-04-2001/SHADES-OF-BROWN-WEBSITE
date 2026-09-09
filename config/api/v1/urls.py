@@ -26,4 +26,12 @@ urlpatterns = [
     "orders/",
     include("apps.orders.urls"),
     ),
+
+    path(
+        "cafe-tables/",
+        include(
+            "apps.cafe_tables.urls",
+            namespace="cafe_tables",
+        ),
+    )
 ]

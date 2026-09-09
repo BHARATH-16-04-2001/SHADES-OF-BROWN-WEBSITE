@@ -112,6 +112,7 @@
 
 
 from django.db import models
+import time
 
 from customers.models import Customer
 from apps.menu.models import FoodItem
@@ -132,6 +133,12 @@ class Order(models.Model):
         related_name="orders",
     )
 
+    table_number = models.PositiveIntegerField(
+        null=False,
+        blank=False,  
+        # required=True,
+    )
+
     order_number = models.CharField(
         max_length=20,
         unique=True,
@@ -150,6 +157,9 @@ class Order(models.Model):
         default=0,
     )
 
+    cgst = models.DecimalField(max_digits=10, decimal_places=2,default=0.025)
+    sgst = models.DecimalField(max_digits=10, decimal_places=2,default=0.025)
+
     discount = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -162,8 +172,16 @@ class Order(models.Model):
         default=0,
     )
 
+    encrypted_phone = models.CharField(
+        max_length=1000,
+    )
+    
+
+    # created_at = models.DateTimeField(
+    #     auto_now_add=True,
+    # )
     created_at = models.DateTimeField(
-        auto_now_add=True,
+        default=time.time,          
     )
 
     updated_at = models.DateTimeField(
@@ -186,6 +204,7 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
+  
     order = models.ForeignKey(
         Order,
         on_delete=models.CASCADE,

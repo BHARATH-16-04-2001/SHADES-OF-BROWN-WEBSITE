@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_filters",
     "corsheaders",
+    "channels",
     
     "customers",
     "cart",
@@ -178,4 +179,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://gratify-handwoven-spore.ngrok-free.dev/"
 ]
+
+
+# python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+PHONE_ENCRYPTION_KEY = os.getenv("PHONE_ENCRYPTION_KEY")
