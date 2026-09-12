@@ -113,6 +113,7 @@
 
 from django.db import models
 import time
+from django.utils import timezone
 
 from customers.models import Customer
 from apps.menu.models import FoodItem
@@ -181,8 +182,8 @@ class Order(models.Model):
     #     auto_now_add=True,
     # )
     created_at = models.DateTimeField(
-        default=time.time,          
-    )
+                default=timezone.now,
+            )
 
     updated_at = models.DateTimeField(
         auto_now=True,
