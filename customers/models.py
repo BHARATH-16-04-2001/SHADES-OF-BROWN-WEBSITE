@@ -9,10 +9,6 @@ class Customer(models.Model):
         max_length=10, 
     )
 
-    table_number = models.CharField(
-        max_length=10,
-    )
-
     encrypted_phone = models.CharField(
         max_length=1000,
     )

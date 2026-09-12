@@ -169,19 +169,6 @@ class ChefOrderItemSerializer(serializers.ModelSerializer):
         fields = ["food_name", "quantity", "unit_price", "total_price"]
 
 
-class ChefOrderSerializer(serializers.ModelSerializer):
-    items = ChefOrderItemSerializer(many=True, read_only=True)
-    # exposed for reference only — opaque to the chef, never the raw phone
-    encrypted_phone = serializers.CharField(source="customer.encrypted_phone", read_only=True)
-
-    class Meta:
-        model = Order
-        fields = [
-            "id", "order_number", "customer_name", "table_number", "status",
-            "subtotal", "cgst", "sgst", "total", "created_at",
-            "items", "encrypted_phone",
-        ]
-
 class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
@@ -192,6 +179,27 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "quantity",
             "unit_price",
             "total_price",
+        ]
+
+
+class ChefOrderSerializer(serializers.ModelSerializer):
+    orderId = serializers.IntegerField(source="id", read_only=True)
+    customerName = serializers.CharField(
+        source="customer.name",
+        read_only=True
+    )
+    customerId = serializers.IntegerField(
+        source="customer.id",
+        read_only=True
+    )
+
+    class Meta:
+        model = Order
+        fields = [
+            "orderId",
+            "status",
+            "customerName",
+            "customerId",
         ]
 
 
@@ -228,12 +236,17 @@ class OrderSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-# class ChefOrderSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Order
-#         fields = [
-#             "id", "customer_name", "table_number", "items",
-#             "status", "total", "placed_at",
-#             "encrypted_phone",  # opaque to the chef — used only for reference
-#         ]
-        # raw `phone` is deliberately not in this list
+class ActiveOrderSerializer(serializers.ModelSerializer):
+    orderId = serializers.IntegerField(source="id", read_only=True)
+    customerId = serializers.IntegerField(source="customer.id", read_only=True)
+    customerName = serializers.CharField(source="customer.name", read_only=True)
+
+
+    class Meta:
+        model = Order
+        fields = [
+            "orderId",
+            "status",
+            "customerName",
+            "customerId",
+        ]

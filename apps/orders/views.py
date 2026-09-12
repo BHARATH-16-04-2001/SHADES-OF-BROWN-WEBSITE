@@ -128,7 +128,7 @@ from rest_framework.generics import get_object_or_404
 from customers.models import Customer
 
 from .models import Order, OrderItem
-from .serializers import CheckoutSerializer, ChefOrderSerializer, OrderSerializer, OrderItemSerializer
+from .serializers import ActiveOrderSerializer, CheckoutSerializer, ChefOrderSerializer, OrderSerializer, OrderItemSerializer
 
 
 # class CheckoutView(APIView):
@@ -287,7 +287,6 @@ class CheckoutView(APIView):
         # --- order ---
         order = Order.objects.create(
             customer=customer,
-            customer_name=data["customer_name"],
             table_number=data["table_number"],
             status=Order.Status.PENDING,
             subtotal=data["subtotal"],
@@ -320,6 +319,9 @@ class CheckoutView(APIView):
             {
                 "message": "Order created successfully.",
                 "token": token,
+                "customerId": customer.id,
+                "customerName": customer.name,
+                "customerPhone": customer.phone,
                 "encryptedPhone": customer.encrypted_phone,
                 "order": ChefOrderSerializer(order).data,
             },
@@ -332,11 +334,16 @@ class OrderListView(APIView):
         orders = (
             Order.objects
             .select_related("customer")
-            .prefetch_related("items")
+            .exclude(
+                status__in=[
+                    Order.Status.COMPLETED,
+                    Order.Status.CANCELLED,
+                ]
+            )
             .order_by("-created_at")
         )
 
-        serializer = OrderSerializer(
+        serializer = ActiveOrderSerializer(
             orders,
             many=True
         )
@@ -347,7 +354,50 @@ class OrderListView(APIView):
         )
 
     
+from django.shortcuts import get_object_or_404
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from customers.models import Customer
+
+from .models import Order
+from .serializers import OrderSerializer
+
+
+class CustomerOrderListView(APIView):
+
+    def get(self, request, customer_id):
+
+        # 1. Verify customer exists
+        customer = get_object_or_404(
+            Customer,
+            id=customer_id
+        )
+
+        # 2. Get only this customer's orders
+        orders = (
+            Order.objects
+            .filter(customer=customer)
+            .prefetch_related("items")
+            .order_by("-created_at")
+        )
+
+        # 3. Serialize orders + their items
+        serializer = OrderSerializer(
+            orders,
+            many=True
+        )
+
+        return Response(
+            {
+                "customerId": customer.id,
+                "customerName": customer.name,
+                "orders": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
+    
 # from .crypto import encrypt_phone
 # from .auth import generate_order_token
 
@@ -423,12 +473,40 @@ from .channels_utils import channel_group_for
 #         return Response(ChefOrderSerializer(order).data)
 
 from .broadcasts import broadcast_order_status
-
 class OrderStatusUpdateView(APIView):
-    def patch(self, request, order_id):
-        order = get_object_or_404(Order, id=order_id)
-        order.status = request.data["status"]
-        order.save(update_fields=["status"])
 
+    def patch(self, request):
+
+        order_id = request.data.get("orderId")
+        new_status = request.data.get("status")
+
+        if not order_id:
+            return Response(
+                {"error": "orderId is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not new_status:
+            return Response(
+                {"error": "status is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        order = get_object_or_404(
+            Order,
+            id=order_id,
+        )
+
+        order.status = new_status.upper()
+
+        order.save(
+            update_fields=["status"]
+        )
+
+        # Send updated order through WebSocket
         broadcast_order_status(order)
-        return Response(ChefOrderSerializer(order).data)
+
+        return Response(
+            ChefOrderSerializer(order).data,
+            status=status.HTTP_200_OK,
+        )

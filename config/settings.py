@@ -25,12 +25,12 @@ load_dotenv(BASE_DIR / ".env")
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv(
-    "DJANGO_SECRET_KEY",
-    "development-only-secret-key"
-)
+# SECRET_KEY = os.getenv(
+#     "DJANGO_SECRET_KEY",
+#     "development-only-secret-key"
+# )
 
-
+SECRET_KEY="thiISHAOhoihiauhcuah$$#@83yq83yuhisa8wey3dw8hh"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -42,6 +42,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
+    "gratify-handwoven-spore.ngrok-free.dev",
 ]
 
 
@@ -177,11 +178,21 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://gratify-handwoven-spore.ngrok-free.dev/"
+    "https://gratify-handwoven-spore.ngrok-free.dev"
 ]
 
 
 # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-PHONE_ENCRYPTION_KEY = os.getenv("PHONE_ENCRYPTION_KEY")
+# PHONE_ENCRYPTION_KEY = os.getenv("PHONE_ENCRYPTION_KEY")
+PHONE_ENCRYPTION_KEY = "s88aBLjgmiwnNYYc66ghcjzc0a8XWhdl0HB-52bLkgk="
+
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
