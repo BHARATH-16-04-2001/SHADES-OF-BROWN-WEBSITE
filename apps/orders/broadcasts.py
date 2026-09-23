@@ -1,3 +1,5 @@
+
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
@@ -9,10 +11,6 @@ CHEF_GROUP = "new_orders_backend"
 
 
 def broadcast_new_order(order):
-    """
-    Broadcast a newly created order to
-    all connected chef/admin screens.
-    """
 
     channel_layer = get_channel_layer()
 
@@ -30,18 +28,12 @@ def broadcast_new_order(order):
 
 
 def broadcast_order_status(order):
-    """
-    Broadcast status to:
-
-    1. The customer who owns the order
-    2. Every connected chef/admin screen
-    """
 
     channel_layer = get_channel_layer()
 
-    # ---------------------------------
-    # Customer
-    # ---------------------------------
+    # -----------------------------------------
+    # Customer group
+    # -----------------------------------------
 
     encrypted_phone = (
         order.customer.encrypted_phone
@@ -51,38 +43,38 @@ def broadcast_order_status(order):
         encrypted_phone
     )
 
+    # -----------------------------------------
+    # Send update to customer
+    # -----------------------------------------
+
     async_to_sync(
         channel_layer.group_send
     )(
         customer_group,
         {
-            "type":
-                "order_status_update",
+            "type": "order_status_update",
 
-            "order_id":
-                order.id,
+            # IMPORTANT
+            # Use orderId
+            "order_id": order.id,
 
-            "status":
-                order.status,
+            "status": order.status,
         },
     )
 
-
-    # ---------------------------------
-    # Kitchen / Admin
-    # ---------------------------------
+    # -----------------------------------------
+    # Send update to all admin/chef screens
+    # -----------------------------------------
 
     async_to_sync(
         channel_layer.group_send
     )(
         CHEF_GROUP,
         {
-            "type":
-                "order_status_update",
+            "type": "order_status_update",
 
-            "order":
-                ChefOrderSerializer(
-                    order
-                ).data,
+            "order": ChefOrderSerializer(
+                order
+            ).data,
         },
     )

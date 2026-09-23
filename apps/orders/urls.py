@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import CheckoutView, OrderListView, CustomerOrderListView
 from .consumers import NewOrderConsumer
+from .views import CustomerOrderPhoneListView
 
 app_name = "orders"
 
@@ -29,5 +30,11 @@ urlpatterns = [
         "ws/orders/",           
         NewOrderConsumer.as_asgi(),
     ),
+    
+        path(
+            "customer/phone/<str:phone_no>/",
+            CustomerOrderPhoneListView.as_view(),
+            name="customer-orders-by-phone",
+        ),
 
 ]

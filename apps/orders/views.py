@@ -398,27 +398,38 @@ class CustomerOrderListView(APIView):
             status=status.HTTP_200_OK,
         )
     
-# from .crypto import encrypt_phone
-# from .auth import generate_order_token
+class CustomerOrderPhoneListView(APIView):
 
-# class OrderCreateView(APIView):
-#     def post(self, request):
-#         serializer = OrderSerializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
+    def get(self, request, phone_no):
 
-#         encrypted_phone = encrypt_phone(request.data["phone"])
-#         order = serializer.save(encrypted_phone=encrypted_phone)
+        # 1. Verify customer exists
+        customer = get_object_or_404(
+            Customer,
+            phone=phone_no    
+        )
 
-#         token = generate_order_token(encrypted_phone)
-#         return Response(
-#             {
-#                 "order": serializer.data,
-#                 "token": token,
-#                 "encryptedPhone": encrypted_phone,
-#             },
-#             status=201,
-#         )
+        # 2. Get only this customer's orders
+        orders = (
+            Order.objects
+            .filter(customer=customer)
+            .prefetch_related("items")
+            .order_by("-created_at")
+        )
 
+        # 3. Serialize orders + their items
+        serializer = OrderSerializer(
+            orders,
+            many=True
+        )
+
+        return Response(
+            {
+                "customerId": customer.id,
+                "customerName": customer.name,
+                "orders": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 from .crypto import encrypt_phone
 from .auth import generate_order_token
@@ -473,6 +484,57 @@ from .channels_utils import channel_group_for
 #         return Response(ChefOrderSerializer(order).data)
 
 from .broadcasts import broadcast_order_status
+# class OrderStatusUpdateView(APIView):
+
+#     def patch(self, request):
+
+#         order_id = request.data.get("orderId")
+#         new_status = request.data.get("status")
+
+#         if not order_id:
+#             return Response(
+#                 {"error": "orderId is required"},
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+
+#         if not new_status:
+#             return Response(
+#                 {"error": "status is required"},
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+
+#         order = get_object_or_404(
+#             Order,
+#             id=order_id,
+#         )
+
+#         order.status = new_status.upper()
+
+#         order.save(
+#             update_fields=["status"]
+#         )
+
+#         # Send updated order through WebSocket
+#         broadcast_order_status(order)
+
+#         return Response(
+#             ChefOrderSerializer(order).data,
+#             status=status.HTTP_200_OK,
+#         )
+
+
+
+
+from django.shortcuts import get_object_or_404
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Order
+from .serializers import ChefOrderSerializer
+from .broadcasts import broadcast_order_status
+
+
 class OrderStatusUpdateView(APIView):
 
     def patch(self, request):
@@ -480,33 +542,444 @@ class OrderStatusUpdateView(APIView):
         order_id = request.data.get("orderId")
         new_status = request.data.get("status")
 
+        # -----------------------------------------
+        # Validate orderId
+        # -----------------------------------------
+
         if not order_id:
             return Response(
-                {"error": "orderId is required"},
+                {
+                    "error": "orderId is required"
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # -----------------------------------------
+        # Validate status
+        # -----------------------------------------
 
         if not new_status:
             return Response(
-                {"error": "status is required"},
+                {
+                    "error": "status is required"
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        new_status = new_status.upper()
+
+        # -----------------------------------------
+        # Validate status against model choices
+        # -----------------------------------------
+
+        if new_status not in Order.Status.values:
+            return Response(
+                {
+                    "error": "Invalid order status",
+                    "allowed_statuses": list(
+                        Order.Status.values
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # -----------------------------------------
+        # IMPORTANT:
+        #
+        # Use orderId, NOT id
+        # -----------------------------------------
+
         order = get_object_or_404(
             Order,
-            id=order_id,
+            orderId=order_id,
         )
 
-        order.status = new_status.upper()
+        # -----------------------------------------
+        # Update status
+        # -----------------------------------------
+
+        order.status = new_status
 
         order.save(
             update_fields=["status"]
         )
 
-        # Send updated order through WebSocket
+        # -----------------------------------------
+        # Broadcast update
+        # -----------------------------------------
+
         broadcast_order_status(order)
+
+        # -----------------------------------------
+        # Return updated order
+        # -----------------------------------------
 
         return Response(
             ChefOrderSerializer(order).data,
             status=status.HTTP_200_OK,
+        )
+        
+import json
+
+from channels.db import database_sync_to_async
+from channels.generic.websocket import AsyncWebsocketConsumer
+
+from .channels_utils import channel_group_for
+from .models import Order
+
+
+class NewOrderConsumer(
+    AsyncWebsocketConsumer
+):
+
+    GROUP_NAME = "new_orders_backend"
+
+    # ==================================================
+    # CONNECT
+    # ==================================================
+
+    async def connect(self):
+
+        await self.channel_layer.group_add(
+            self.GROUP_NAME,
+            self.channel_name,
+        )
+
+        await self.accept()
+
+        print(
+            "🔥 Admin WebSocket connected"
+        )
+
+    # ==================================================
+    # DISCONNECT
+    # ==================================================
+
+    async def disconnect(
+        self,
+        close_code,
+    ):
+
+        await self.channel_layer.group_discard(
+            self.GROUP_NAME,
+            self.channel_name,
+        )
+
+        print(
+            "🔥 Admin WebSocket disconnected:",
+            close_code,
+        )
+
+    # ==================================================
+    # RECEIVE
+    # ==================================================
+
+    async def receive(
+        self,
+        text_data,
+    ):
+
+        try:
+            payload = json.loads(
+                text_data
+            )
+
+        except json.JSONDecodeError:
+
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "type": "error",
+                        "message": (
+                            "Malformed JSON"
+                        ),
+                    }
+                )
+            )
+
+            return
+
+        print(
+            "Admin WebSocket received:",
+            payload,
+        )
+
+        # ------------------------------------------
+        # Only handle orderStatus
+        # ------------------------------------------
+
+        if (
+            payload.get("type")
+            != "orderStatus"
+        ):
+            return
+
+        order_id = payload.get(
+            "order_id"
+        )
+
+        new_status = payload.get(
+            "status"
+        )
+
+        # ------------------------------------------
+        # Validate
+        # ------------------------------------------
+
+        if not order_id:
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "type": "error",
+                        "message": (
+                            "order_id is required"
+                        ),
+                    }
+                )
+            )
+
+            return
+
+        if not new_status:
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "type": "error",
+                        "message": (
+                            "status is required"
+                        ),
+                    }
+                )
+            )
+
+            return
+
+        new_status = new_status.upper()
+
+        if (
+            new_status
+            not in Order.Status.values
+        ):
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "type": "error",
+                        "message": (
+                            "Invalid order status"
+                        ),
+                    }
+                )
+            )
+
+            return
+
+        # ------------------------------------------
+        # Update database
+        # ------------------------------------------
+
+        order = (
+            await self._update_order_status(
+                order_id,
+                new_status,
+            )
+        )
+
+        if order is None:
+
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "type": "error",
+                        "message": (
+                            f"Order "
+                            f"{order_id} "
+                            f"not found."
+                        ),
+                    }
+                )
+            )
+
+            return
+
+        print(
+            f"🔥 Order "
+            f"{order.orderId} "
+            f"updated to "
+            f"{order.status}"
+        )
+
+        # ------------------------------------------
+        # Notify customer
+        # ------------------------------------------
+
+        await self._notify_customer(
+            order
+        )
+
+        # ------------------------------------------
+        # Send confirmation to the admin
+        # ------------------------------------------
+
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": (
+                        "orderStatusUpdated"
+                    ),
+
+                    # IMPORTANT
+                    # Use orderId
+                    "order_id":
+                        order.orderId,
+
+                    "status":
+                        order.status,
+                }
+            )
+        )
+
+        # ------------------------------------------
+        # Broadcast to all admin screens
+        # ------------------------------------------
+
+        await self.channel_layer.group_send(
+            self.GROUP_NAME,
+            {
+                "type":
+                    "admin_order_status_update",
+
+                "order": {
+                    "orderId":
+                        order.orderId,
+
+                    "status":
+                        order.status,
+
+                    "customerName":
+                        order.customer.name,
+
+                    "customerId":
+                        order.customer.id,
+                },
+            },
+        )
+
+    # ==================================================
+    # NEW ORDER EVENT
+    # ==================================================
+
+    async def new_order(
+        self,
+        event,
+    ):
+
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "new_order",
+                    "order":
+                        event["order"],
+                }
+            )
+        )
+
+    # ==================================================
+    # ADMIN STATUS UPDATE EVENT
+    # ==================================================
+
+    async def admin_order_status_update(
+        self,
+        event,
+    ):
+
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type":
+                        "order_status_update",
+
+                    "order":
+                        event["order"],
+                }
+            )
+        )
+
+    # ==================================================
+    # DATABASE UPDATE
+    # ==================================================
+
+    @database_sync_to_async
+    def _update_order_status(
+        self,
+        order_id,
+        new_status,
+    ):
+
+        try:
+
+            # IMPORTANT:
+            # Use orderId instead of id
+
+            order = (
+                Order.objects
+                .select_related(
+                    "customer"
+                )
+                .get(
+                    orderId=order_id
+                )
+            )
+
+        except Order.DoesNotExist:
+
+            return None
+
+        order.status = new_status
+
+        order.save(
+            update_fields=[
+                "status"
+            ]
+        )
+
+        return order
+
+    # ==================================================
+    # CUSTOMER NOTIFICATION
+    # ==================================================
+
+    async def _notify_customer(
+        self,
+        order,
+    ):
+
+        encrypted_phone = (
+            order.customer.encrypted_phone
+        )
+
+        group_name = (
+            channel_group_for(
+                encrypted_phone
+            )
+        )
+
+        print(
+            "Sending customer update to:",
+            group_name,
+        )
+
+        await self.channel_layer.group_send(
+            group_name,
+            {
+                "type":
+                    "order_status_update",
+
+                # IMPORTANT
+                # Use orderId
+                "order_id":
+                    order.orderId,
+
+                "status":
+                    order.status,
+            },
         )
