@@ -51,6 +51,7 @@ ALLOWED_HOSTS = [
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
+    "daphne",
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
@@ -60,6 +61,7 @@ INSTALLED_APPS = [
     "django_filters",
     "corsheaders",
     "channels",
+    
     
     "customers",
     "cart",
@@ -103,6 +105,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = "config.asgi.application"
 
 
 # Database

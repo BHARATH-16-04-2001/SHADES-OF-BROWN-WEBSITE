@@ -192,6 +192,8 @@ class ChefOrderSerializer(serializers.ModelSerializer):
         source="customer.id",
         read_only=True
     )
+    
+   
 
     class Meta:
         model = Order
@@ -200,6 +202,8 @@ class ChefOrderSerializer(serializers.ModelSerializer):
             "status",
             "customerName",
             "customerId",
+            "table_number",
+            "order_number",
         ]
 
 
@@ -217,6 +221,8 @@ class OrderSerializer(serializers.ModelSerializer):
             "customer",
             "status",
             "subtotal",
+            "cgst",
+            "sgst",
             "discount",
             "total",
             "items",
@@ -229,6 +235,8 @@ class OrderSerializer(serializers.ModelSerializer):
             "customer",
             "status",
             "subtotal",
+            "cgst",
+            "sgst",
             "discount",
             "total",
             "items",
@@ -249,4 +257,7 @@ class ActiveOrderSerializer(serializers.ModelSerializer):
             "status",
             "customerName",
             "customerId",
+            "table_number",
+            "order_number",
+            
         ]
